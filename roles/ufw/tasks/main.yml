@@ -1,0 +1,23 @@
+---
+- name: ufw enable
+  ufw:
+    state: enabled
+    policy: allow
+  become: yes
+  
+
+- name:  ufw allow ports in
+  ufw:
+    rule: allow
+    port: "{{item.port}}"
+    proto: "{{ item.proto | default('any') }}"
+    direction: in
+    interface: "{{ ansible_default_ipv4.interface }}"
+  with_items: "{{ ports_allowed }}"
+  become: yes
+
+- name: ufw deny inbound
+  ufw:
+    policy: deny
+    direction: incoming
+  become: yes

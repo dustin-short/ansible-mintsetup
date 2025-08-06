@@ -1,5 +1,9 @@
 ---
 - name: mint setup
   hosts: localhost
+  vars:
+    ports_allowed:
+      - port: ssh
   roles:
     - vimrc
+    - ufw
