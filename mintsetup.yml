@@ -1,0 +1,5 @@
+---
+- name: mint setup
+  hosts: localhost
+  roles:
+    - vimrc

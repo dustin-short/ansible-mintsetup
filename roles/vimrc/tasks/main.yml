@@ -1,0 +1,25 @@
+---
+- name: Get list of normal users with home directories under /home
+  ansible.builtin.command: "awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' /etc/passwd"
+  register: user_list
+  become: yes
+
+- name: Copy vimrc to each user's home directory
+  ansible.builtin.copy:
+    src: vimrc
+    dest: "/home/{{ item }}/.vimrc"
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: '0644'
+  loop: "{{ user_list.stdout_lines }}"
+  when: "item != 'nobody' and item != 'systemd-coredump'"
+  become: yes
+
+- name: Copy vimrc to root's home directory
+  ansible.builtin.copy:
+    src: vimrc
+    dest: "/root/.vimrc"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
