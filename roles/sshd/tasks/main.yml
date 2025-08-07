@@ -1,0 +1,72 @@
+---
+- name: copy banner template to /etc/banner
+  copy:
+    src: banner
+    dest: /etc/banner
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: add banner path to sshd
+  replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^#Banner\snone'
+    replace: Banner /etc/banner
+  notify:
+    - restart sshd daemon
+  become: yes
+
+- name: Enforce FIPS 140-2 approved MACs for SSH
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^MACs'
+    line: 'MACs hmac-sha2-256,hmac-sha2-512'
+  notify:
+    - restart sshd daemon
+  become: yes
+
+- name: Enforce SSH Protocol version 2 only
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^Protocol'
+    line: 'Protocol 2'
+  notify:
+    - restart sshd daemon
+  become: yes
+
+- name: Disallow SSH login with empty passwords
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitEmptyPasswords'
+    line: 'PermitEmptyPasswords no'
+  notify:
+    - restart sshd daemon
+  become: yes
+
+- name: Disable SSH user environment variable support
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitUserEnvironment'
+    line: 'PermitUserEnvironment no'
+  notify:
+    - restart sshd daemon
+  become: yes
+
+- name: Limit SSH idle session count to 1 (for idle timeout)
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^ClientAliveCountMax'
+    line: 'ClientAliveCountMax 1'
+  notify:
+    - restart sshd daemon
+  become: yes
+
+- name: Terminate SSH sessions after 10 minutes of inactivity
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^ClientAliveInterval'
+    line: 'ClientAliveInterval 600'
+  notify:
+    - restart sshd daemon
+  become: yes

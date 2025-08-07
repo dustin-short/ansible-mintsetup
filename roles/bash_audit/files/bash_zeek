@@ -1,0 +1,94 @@
+#!/bin/bash
+
+export MYTTY=$(tty)
+PWAS=$(who -m | cut -d' ' -f1)
+if [ -z "$PWAS" ] ; then
+		PWAS=$(stat -c%U $MYTTY)
+fi
+if [ "$USER" != "$PWAS" ] ; then
+		export WASUSER=$PWAS
+	else
+			unset $WASUSER
+fi
+unset PWAS
+
+PS1='${debian_chroot:+($debian_chroot)}\[\033[01;31m\]\u\[\033[00;31m\](\[\033[00;33m\]$WASUSER\[\033[00;31m\])\[\033[00m\]@\[\033[00;32m\]\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+PATH=/opt/zeek/bin:$PATH
+
+declare -x PS1
+declare -x HISTFILE="$HOME/.bash_history"
+declare -x HISTSIZE=500000                                 #nbr of cmds in memory
+declare -x HISTFILESIZE=500000                             #nbr of cmds on file
+declare -x HISTCONTROL=""                                  #does not ignore spaces or duplicates
+declare -x HISTIGNORE=""                                   #does not ignore patterns
+declare -x HISTCMD                                         #history line number
+
+shopt -s histappend
+shopt -s cmdhist
+shopt -s histverify
+
+if shopt -q login_shell && [ -t 0 ]; then
+  stty -ixon
+fi
+
+declare -x AUDIT_LOGINUSER="$(who -mu | awk '{print $1}')"
+declare -x AUDIT_LOGINPID="$(who -mu | awk '{print $6}')"
+declare -x AUDIT_USER="$USER"                              #defined by pam during su/sudo
+declare -x AUDIT_PID="$$"
+declare -x AUDIT_TTY="$(who -mu | awk '{print $2}')"
+declare -x AUDIT_SSH="$([ -n "$SSH_CONNECTION" ] && echo "$SSH_CONNECTION" | awk '{print $1":"$2"->"$3":"$4}')"
+declare -x AUDIT_STR="[audit $AUDIT_LOGINUSER/$AUDIT_LOGINPID as $AUDIT_USER/$AUDIT_PID on $AUDIT_TTY/$AUDIT_SSH]"
+declare -x AUDIT_LASTHISTLINE=""                            #to avoid logging the same line twice
+declare -x AUDIT_SYSLOG="1"                                #to use a local syslogd
+set +o functrace                                            #disable trap DEBUG inherited in functions, command substitutions or subshells, normally the default setting already
+shopt -s extglob                                            #enable extended pattern matching operators
+function AUDIT_DEBUG() {
+  if [ -z "$AUDIT_LASTHISTLINE" ]; then                     #initialization
+    local AUDIT_CMD="$(fc -l -1 -1)"                        #previous history command
+    AUDIT_LASTHISTLINE="${AUDIT_CMD%%+([^ 0-9])*}"
+  else
+    AUDIT_LASTHISTLINE="$AUDIT_HISTLINE"
+  fi
+  local AUDIT_CMD="$(history 1)"                            #current history command
+  AUDIT_HISTLINE="${AUDIT_CMD%%+([^ 0-9])*}"
+  if [ "${AUDIT_HISTLINE:-0}" -ne "${AUDIT_LASTHISTLINE:-0}" ] || [ "${AUDIT_HISTLINE:-0}" -eq "1" ]; then  #avoid logging unexecuted commands after 'ctrl-c', 'empty+enter', or after 'ctrl-d'
+    echo -ne "${_backnone}${_frontgrey}"                    #disable prompt colors for the command's output
+    #remove in last history cmd its line number (if any) and send to syslog
+    if [ -n "$AUDIT_SYSLOG" ]; then
+      if ! logger -p user.info -t "$AUDIT_STR $PWD" "${AUDIT_CMD##*( )?(+([0-9])?(\*)+( ))}"; then
+        echo error "$AUDIT_STR $PWD" "${AUDIT_CMD##*( )?(+([0-9])?(\*)+( ))}"
+      fi
+    else
+      echo $( date +%F_%H:%M:%S ) "$AUDIT_STR $PWD" "${AUDIT_CMD##*( )?(+([0-9])?(\*)+( ))}" >>/var/log/userlog.info
+    fi
+    #echo "===cmd:$BASH_COMMAND/subshell:$BASH_SUBSHELL/fc:$(fc -l -1)/history:$(history 1)/histline:${AUDIT_CMD%%+([^ 0-9])*}/last_histline:${AUDIT_LASTHISTLINE}===" #for debugging
+    return 0
+  else
+    return 1
+  fi
+}
+function AUDIT_EXIT() {
+  local AUDIT_STATUS="$?"
+  if [ -n "$AUDIT_SYSLOG" ]; then
+    logger -p user.info -t "$AUDIT_STR" "#=== session closed ==="
+  else
+    echo $( date +%F_%H:%M:%S ) "$AUDIT_STR" "#=== session closed ===" >>/var/log/userlog.info
+  fi
+  exit "$AUDIT_STATUS"
+}
+declare -fx +t AUDIT_DEBUG
+declare -fx +t AUDIT_EXIT
+if [ -n "$AUDIT_SYSLOG" ]; then
+  logger -p user.info -t "$AUDIT_STR" "#=== session opened ===" #audit the session openning
+else
+  echo $( date +%F_%H:%M:%S ) "$AUDIT_STR" "#=== session opened ===" >>/var/log/userlog.info
+fi
+        #declare -x PROMPT_COMMAND="AUDIT_DONE=; trap 'AUDIT_DEBUG && AUDIT_DONE=1; trap DEBUG' DEBUG; [ -n \"\$AUDIT_DONE\" ] && echo '-----------------------------'"
+        #NOK: declare -x PROMPT_COMMAND="echo "-----------------------------"; trap 'AUDIT_DEBUG; trap DEBUG' DEBUG; echo '-----------------------------'"
+        #OK:  declare -x PROMPT_COMMAND="echo "-----------------------------"; trap 'AUDIT_DEBUG; trap DEBUG' DEBUG"
+declare -x PROMPT_COMMAND="[ -n \"\$AUDIT_DONE\" ]; AUDIT_DONE=; trap 'AUDIT_DEBUG && AUDIT_DONE=1; trap DEBUG' DEBUG"
+#declare -x PROMPT_COMMAND="[ -n \"\$AUDIT_DONE\" ] && echo '-----------------------------'; AUDIT_DONE=; trap 'AUDIT_DEBUG && AUDIT_DONE=1; trap DEBUG' DEBUG"
+declare -x BASH_COMMAND                                    #current command executed by user or a trap
+declare -x SHELLOPT                                        #shell options, like functrace
+trap AUDIT_EXIT EXIT                                        #audit the session closing

@@ -1,9 +1,12 @@
 ---
 - name: mint setup
+  become: yes
   hosts: localhost
-  vars:
-    ports_allowed:
-      - port: ssh
+#  vars:
+#    ports_allowed:
+#      - port: ssh
   roles:
     - vimrc
-    - ufw
+ #  - ufw
+ #  - sshd
+    - bash_audit

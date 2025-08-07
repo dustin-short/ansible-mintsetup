@@ -1,0 +1,49 @@
+---
+- name: copy bash_audit to /etc/bash_audit
+  copy:
+    src: bash_audit
+    dest: /etc/bash_audit
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: copy bash_splunk to /etc/bash_splunk
+  copy:
+    src: bash_splunk
+    dest: /etc/bash_splunk
+    owner: root
+    group: root
+    mode: '0644'
+    
+- name: copy bash_zeek to /etc/bash_splunk
+  copy:
+    src: bash_zeek
+    dest: /etc/bash_zeek
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: copy 50-audit.sh to /etc/profile.d/
+  copy:
+    src: 50-audit.sh
+    dest: /etc/profile.d/50-audit.sh
+    owner: root
+    group: root
+    mode: '0644'
+    
+- name: copy 15-audit.conf 
+  copy:
+    src: 15-audit.conf
+    dest: /etc/rsyslog.d/15-audit.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - restart rsyslog daemon
+
+- name: add /var/log/bashaudit.log to logrotate
+  lineinfile:
+    path: /etc/logrotate.d/rsyslog
+    regexp: '^/var/log/useraudit.log'
+    insertafter: '^/var/log/messages'
+    line: '/var/log/useraudit.log'
