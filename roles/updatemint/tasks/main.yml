@@ -1,0 +1,29 @@
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: yes
+
+- name: Ensure EFI partition is mounted
+  ansible.builtin.shell: |
+    if ! mountpoint -q /boot/efi; then
+      mount /dev/nvme0n1p1 /boot/efi
+    fi
+
+- name: Backup original Windows Bootloader if not already backed up
+  ansible.builtin.shell: |
+    if [ ! -f /boot/efi/EFI/Microsoft/Boot/bootmgfw.efi.bak ]; then
+      cp /boot/efi/EFI/Microsoft/Boot/bootmgfw.efi /boot/efi/EFI/Microsoft/Boot/bootmgfw.efi.bak
+    fi
+
+- name: Overwrite Windows Boot Manager with GRUB shim
+  ansible.builtin.copy:
+    src: /boot/efi/EFI/ubuntu/grubx64.efi
+    dest: /boot/efi/EFI/Microsoft/Boot/bootmgfw.efi
+    remote_src: yes
+
+- name: Update GRUB so Windows appears in the menu
+  ansible.builtin.command: update-grub

@@ -1,0 +1,6 @@
+---
+- name: update mint
+  become: yes
+  hosts: localhost
+  roles:
+    - updatemint

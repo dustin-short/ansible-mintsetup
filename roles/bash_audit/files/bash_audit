@@ -1,9 +1,12 @@
 #!/bin/bash
 
-export MYTTY=$(tty)
-PWAS=$(who -m | cut -d' ' -f1)
-if [ -z "$PWAS" ] ; then
-	PWAS=$(stat -c%U $MYTTY)
+export MYTTY=$(tty 2>/dev/null)
+PWAS=$(who -m | awk '{print $1}')
+if [ -z "$PWAS" ] && [[ "$MYTTY" =~ ^/dev/ ]]; then
+    PWAS=$(stat -c%U "$MYTTY" 2>/dev/null)
+fi
+if [ -z "$PWAS" ]; then
+    PWAS="unknown"
 fi
 if [ "$USER" != "$PWAS" ] ; then
 	export WASUSER=$PWAS
