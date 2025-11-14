@@ -1,0 +1,10 @@
+---
+- name: Set GRUB to boot Windows on next reboot
+  ansible.builtin.command: >
+    grub-reboot 'Windows Boot Manager (on /dev/nvme0n1p1)'
+
+- name: Reboot system (using shell to avoid control node protection)
+  ansible.builtin.shell: reboot
+  async: 1
+  poll: 0
+  ignore_errors: true

@@ -1,0 +1,6 @@
+---
+- name: Boot into windows one time
+  become: yes
+  hosts: localhost
+  roles:
+    - reboot_to_windows
